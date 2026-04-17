@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Sign In – TripCraft AI{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card">
+    <h2 class="auth-title">Welcome</h2>
+    <p class="auth-sub">Sign in to your account or create a new one</p>
+
+    <div class="tab-group">
+      <button class="tab-btn active" onclick="switchTab('signin', this)">Sign In</button>
+      <button class="tab-btn" onclick="switchTab('signup', this)">Sign Up</button>
+    </div>
+
+    <!-- Sign In Form -->
+    <div id="signin-form" class="auth-form">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="si-email" placeholder="your@email.com" class="form-input"/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="si-password" placeholder="••••••••" class="form-input"/>
+      </div>
+      <div id="signin-error" class="form-error hidden"></div>
+      <button class="btn btn-primary btn-full" id="signin-btn" onclick="doSignIn()">Sign In</button>
+    </div>
+
+    <!-- Sign Up Form -->
+    <div id="signup-form" class="auth-form hidden">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="su-name" placeholder="Your full name" class="form-input"/>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="su-email" placeholder="your@email.com" class="form-input"/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="su-password" placeholder="Create a password" class="form-input"/>
+      </div>
+      <div id="signup-error" class="form-error hidden"></div>
+      <button class="btn btn-primary btn-full" id="signup-btn" onclick="doSignUp()">Create Account</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('signin-form').classList.toggle('hidden', tab !== 'signin');
+  document.getElementById('signup-form').classList.toggle('hidden', tab !== 'signup');
+}
+
+async function doSignIn() {
+  const btn = document.getElementById('signin-btn');
+  const errEl = document.getElementById('signin-error');
+  const email = document.getElementById('si-email').value.trim();
+  const password = document.getElementById('si-password').value;
+
+  if (!email || !password) { showError(errEl, 'Please fill in all fields.'); return; }
+
+  btn.textContent = 'Signing in...';
+  btn.disabled = true;
+  errEl.classList.add('hidden');
+
+  try {
+    const res = await fetch('/signin', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, password})
+    });
+    const data = await res.json();
+    if (data.success) {
+      window.location.href = data.redirect;
+    } else {
+      showError(errEl, data.message);
+      btn.textContent = 'Sign In'; btn.disabled = false;
+    }
+  } catch(e) {
+    showError(errEl, 'Network error. Please try again.');
+    btn.textContent = 'Sign In'; btn.disabled = false;
+  }
+}
+
+async function doSignUp() {
+  const btn = document.getElementById('signup-btn');
+  const errEl = document.getElementById('signup-error');
+  const name = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const password = document.getElementById('su-password').value;
+
+  if (!name || !email || !password) { showError(errEl, 'All fields are required.'); return; }
+  if (password.length < 6) { showError(errEl, 'Password must be at least 6 characters.'); return; }
+
+  btn.textContent = 'Creating account...';
+  btn.disabled = true;
+  errEl.classList.add('hidden');
+
+  try {
+    const res = await fetch('/signup', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, email, password})
+    });
+    const data = await res.json();
+    if (data.success) {
+      window.location.href = data.redirect;
+    } else {
+      showError(errEl, data.message);
+      btn.textContent = 'Create Account'; btn.disabled = false;
+    }
+  } catch(e) {
+    showError(errEl, 'Network error. Please try again.');
+    btn.textContent = 'Create Account'; btn.disabled = false;
+  }
+}
+
+function showError(el, msg) {
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}TripCraft AI – Your Journey, Perfectly Crafted{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span>✨</span> Powered by Advanced AI
+    </div>
+    <h1 class="hero-title">
+      <span>TripCraft AI</span>
+    </h1>
+    <p class="hero-subtitle">Your Journey, Perfectly Crafted with Intelligence</p>
+    <p class="hero-desc">Stop juggling dozens of tabs and conflicting travel info. Our AI-powered platform turns your travel dreams into reality—complete with flights, hotels, activities, and budget—all from a simple conversation about your perfect trip.</p>
+    <div class="hero-actions">
+      <a href="{{ url_for('plan') }}" class="btn btn-primary btn-lg">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+        Plan My Trip
+      </a>
+      <a href="#how-it-works" class="btn btn-ghost btn-lg">See How It Works →</a>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <div class="hero-image-card">
+      <img src="https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&auto=format&fit=crop" alt="Travel destination" />
+      <div class="hero-overlay">
+        <h3>Paris, France</h3>
+        <p>7-day romantic getaway from $1,299</p>
+      </div>
+      <div class="floating-card floating-card-1">
+        <span class="icon">✈️</span>
+        <span class="label">Flights</span>
+        <span class="value">Included</span>
+      </div>
+      <div class="floating-card floating-card-2">
+        <span class="icon">🏨</span>
+        <span class="label">Hotels</span>
+        <span class="value">4.8★</span>
+      </div>
+      <div class="floating-card floating-card-3">
+        <span class="icon">🗓️</span>
+        <span class="label">Itinerary</span>
+        <span class="value">7 Days</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section class="section" id="how-it-works">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        How It Works
+      </span>
+      <h2 class="section-title">Plan Your Perfect Trip in 3 Steps</h2>
+      <p class="section-desc">Our AI-powered platform makes travel planning effortless and personalized</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-number step-red">1</div>
+        <h3>Fill Once, Dream Big</h3>
+        <p>Tell us about your ideal trip—destination, dates, style, budget, and preferences. Our thoughtful 7-step form captures everything we need.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number step-yellow">2</div>
+        <h3>AI Agents Take Over</h3>
+        <p>Specialized AI agents work together on flights, lodging, activities, and budgeting—all happening simultaneously in real time.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number step-blue">3</div>
+        <h3>Complete Itinerary Ready</h3>
+        <p>Get a full day-by-day plan with flights, accommodations, activities, costs, and booking links—personalized just for you.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="section section-gray">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        Features
+      </span>
+      <h2 class="section-title">Everything You Need for Perfect Trips</h2>
+      <p class="section-desc">Comprehensive travel planning powered by advanced AI</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">✈️</div>
+        <h4>Real Flight Options</h4>
+        <p>Live search for actual flights with pricing, timings, and airline details.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🏨</div>
+        <h4>Smart Hotel Picks</h4>
+        <p>Accommodation matched to your travel style and budget.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🗓️</div>
+        <h4>Day-by-Day Itinerary</h4>
+        <p>Morning, afternoon, and evening plans with times and notes.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🍽️</div>
+        <h4>Dining Recommendations</h4>
+        <p>Restaurants filtered by your dietary needs and preferences.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💰</div>
+        <h4>Budget Analysis</h4>
+        <p>Full cost breakdown with savings tips and daily estimates.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🗺️</div>
+        <h4>Destination Guide</h4>
+        <p>Local tips, transport, culture, safety, and emergency contacts.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="section cta-section">
+  <div class="container text-center">
+    <h2>Ready to plan your perfect trip?</h2>
+    <p>Join thousands of travelers who let AI do the heavy lifting.</p>
+    <a href="{{ url_for('plan') }}" class="btn btn-primary btn-xl mt-2">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+      Start Planning Free
+    </a>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Crafting Your Trip – TripCraft AI{% endblock %}
+
+{% block content %}
+<div class="processing-page">
+  <div class="processing-card">
+    <div class="processing-globe">🌍</div>
+    <h2>Your AI agents are at work...</h2>
+    <p class="processing-sub">Sit back while we craft your perfect itinerary. This takes about 60–120 seconds.</p>
+
+    <div class="agent-steps">
+      <div class="agent-step" id="agent-1">
+        <div class="agent-icon">✈️</div>
+        <div class="agent-info">
+          <strong>Flight Agent</strong>
+          <span>Searching for the best flights...</span>
+        </div>
+        <div class="agent-status pending">⏳</div>
+      </div>
+      <div class="agent-step" id="agent-2">
+        <div class="agent-icon">🏨</div>
+        <div class="agent-info">
+          <strong>Hotel Agent</strong>
+          <span>Finding perfect accommodations...</span>
+        </div>
+        <div class="agent-status pending">⏳</div>
+      </div>
+      <div class="agent-step" id="agent-3">
+        <div class="agent-icon">🍽️</div>
+        <div class="agent-info">
+          <strong>Food Agent</strong>
+          <span>Discovering local dining options...</span>
+        </div>
+        <div class="agent-status pending">⏳</div>
+      </div>
+      <div class="agent-step" id="agent-4">
+        <div class="agent-icon">🗓️</div>
+        <div class="agent-info">
+          <strong>Planner Agent</strong>
+          <span>Crafting your day-by-day itinerary...</span>
+        </div>
+        <div class="agent-status pending">⏳</div>
+      </div>
+      <div class="agent-step" id="agent-5">
+        <div class="agent-icon">🗺️</div>
+        <div class="agent-info">
+          <strong>Guide Agent</strong>
+          <span>Compiling destination guide...</span>
+        </div>
+        <div class="agent-status pending">⏳</div>
+      </div>
+      <div class="agent-step" id="agent-6">
+        <div class="agent-icon">💰</div>
+        <div class="agent-info">
+          <strong>Budget Agent</strong>
+          <span>Optimizing your budget...</span>
+        </div>
+        <div class="agent-status pending">⏳</div>
+      </div>
+    </div>
+
+    <div class="processing-progress">
+      <div class="processing-bar" id="processing-bar"></div>
+    </div>
+    <p class="processing-msg" id="processing-msg">Initializing AI agents...</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const tripId = {{ trip.id }};
+const agentTiming = [8000, 18000, 28000, 50000, 65000, 80000];
+const agentCount = 6;
+let currentAgent = 0;
+
+function activateAgent(idx) {
+  if (idx >= agentCount) return;
+  const el = document.getElementById(`agent-${idx + 1}`);
+  if (!el) return;
+  el.classList.add('active');
+  el.querySelector('.agent-status').textContent = '⚙️';
+  // Mark previous as done
+  if (idx > 0) {
+    const prev = document.getElementById(`agent-${idx}`);
+    if (prev) {
+      prev.classList.remove('active');
+      prev.classList.add('done');
+      prev.querySelector('.agent-status').textContent = '✅';
+    }
+  }
+  const bar = document.getElementById('processing-bar');
+  bar.style.width = `${((idx + 1) / agentCount) * 100}%`;
+}
+
+// Simulate agent activation based on timing
+agentTiming.forEach((delay, idx) => {
+  setTimeout(() => activateAgent(idx), delay);
+});
+
+activateAgent(0);
+
+// Poll for completion
+const poll = setInterval(async () => {
+  try {
+    const res = await fetch(`/trip-status/${tripId}`);
+    const data = await res.json();
+    if (data.status === 'done') {
+      clearInterval(poll);
+      // Mark all done
+      for (let i = 1; i <= agentCount; i++) {
+        const el = document.getElementById(`agent-${i}`);
+        if (el) { el.classList.add('done'); el.querySelector('.agent-status').textContent = '✅'; }
+      }
+      document.getElementById('processing-bar').style.width = '100%';
+      document.getElementById('processing-msg').textContent = '🎉 Your trip is ready!';
+      setTimeout(() => { window.location.href = `/trip/${tripId}`; }, 1200);
+    } else if (data.status === 'error') {
+      clearInterval(poll);
+      document.getElementById('processing-msg').textContent = '❌ Something went wrong. Please try again.';
+    }
+  } catch(e) {
+    console.error('Poll error', e);
+  }
+}, 4000);
+</script>
+{% endblock %}

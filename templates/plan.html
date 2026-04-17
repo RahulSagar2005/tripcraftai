@@ -1,0 +1,516 @@
+{% extends "base.html" %}
+{% block title %}Plan Your Trip – TripCraft AI{% endblock %}
+
+{% block head %}
+<style>
+  /* Plan Page Specific Styles */
+  .plan-page {
+    animation: fadeInUp 0.6s ease-out;
+  }
+
+  .step-header {
+    animation: fadeInUp 0.4s ease-out;
+  }
+
+  .form-step {
+    animation: slideIn 0.5s ease-out;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .step-nav-item {
+    cursor: pointer;
+  }
+
+  .step-nav-item:hover .step-nav-icon {
+    transform: scale(1.1);
+  }
+
+  .step-nav-item.active .step-nav-icon {
+    animation: pulseIcon 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulseIcon {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+  }
+
+  .budget-display {
+    position: relative;
+  }
+
+  .form-input:focus + .form-hint,
+  .form-input:focus ~ .form-hint {
+    color: var(--primary);
+  }
+
+  /* Enhance counter input styling */
+  .counter-input {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .counter-input button:active {
+    background: var(--primary) !important;
+    color: var(--white) !important;
+  }
+
+  /* Range slider track enhancement */
+  .range-slider {
+    background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 50%, var(--primary) 100%);
+    background-size: 200% 100%;
+    animation: gradientShift 3s ease infinite;
+  }
+
+  @keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  /* Progress bar shimmer */
+  .steps-progress-bar {
+    background: linear-gradient(90deg, var(--gray-200) 0%, var(--primary) 50%, var(--gray-200) 100%);
+    background-size: 200% 100%;
+    animation: shimmerProgress 2s linear infinite;
+  }
+
+  @keyframes shimmerProgress {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Form step transition */
+  .form-step {
+    opacity: 0;
+    transform: translateX(30px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .form-step.active {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  /* Input focus glow */
+  .form-input:focus,
+  .form-textarea:focus {
+    box-shadow:
+      0 0 0 4px var(--primary-light),
+      0 4px 20px rgba(229, 57, 53, 0.15),
+      0 0 40px rgba(229, 57, 53, 0.1);
+  }
+
+  /* Radio card hover lift */
+  .radio-card,
+  .radio-card-lg {
+    transform: translateY(0);
+  }
+
+  .radio-card:hover,
+  .radio-card-lg:hover {
+    transform: translateY(-4px);
+  }
+
+  /* Step number completion checkmark */
+  .step-nav-item.completed .step-nav-icon::after {
+    content: '✓';
+    position: absolute;
+    font-size: 0.7rem;
+    bottom: -2px;
+    right: -2px;
+    background: var(--success);
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--white);
+  }
+
+  /* Button pulse on submit */
+  .btn-submitting {
+    animation: btnPulse 1s ease-in-out infinite;
+  }
+
+  @keyframes btnPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="plan-page">
+  <div class="plan-header">
+    <h1>🧳 Plan Your Perfect Trip</h1>
+    <p>Tell us about your dream destination and we'll craft the perfect itinerary just for you</p>
+  </div>
+
+  <!-- Step Indicators -->
+  <div class="steps-nav">
+    <div class="step-nav-item active" data-step="1">
+      <div class="step-nav-icon">✈️</div>
+      <span>Trip Basics</span>
+    </div>
+    <div class="step-nav-item" data-step="2">
+      <div class="step-nav-icon">👥</div>
+      <span>Group Details</span>
+    </div>
+    <div class="step-nav-item" data-step="3">
+      <div class="step-nav-icon">💵</div>
+      <span>Budget & Style</span>
+    </div>
+    <div class="step-nav-item" data-step="4">
+      <div class="step-nav-icon">❤️</div>
+      <span>Trip Vibe</span>
+    </div>
+    <div class="step-nav-item" data-step="5">
+      <div class="step-nav-icon">🏠</div>
+      <span>Stay Preferences</span>
+    </div>
+    <div class="step-nav-item" data-step="6">
+      <div class="step-nav-icon">⏱️</div>
+      <span>Pace & Style</span>
+    </div>
+    <div class="step-nav-item" data-step="7">
+      <div class="step-nav-icon">🌐</div>
+      <span>Personal Touch</span>
+    </div>
+    <div class="steps-progress-bar"><div class="steps-progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <div class="plan-form-wrapper">
+
+    <!-- Step 1: Trip Basics -->
+    <div class="form-step active" id="step-1">
+      <div class="step-header">
+        <h2>✈️ Trip Basics</h2>
+        <p>Where and when are you going?</p>
+      </div>
+      <div class="form-group">
+        <label>
+          ✨ What's your name?
+          <span class="prefill-badge">Prefilled from account</span>
+        </label>
+        <input type="text" id="traveler_name" value="{{ user.name }}" class="form-input" readonly/>
+        <span class="form-hint green">✨ Welcome back, {{ user.name }}! Your name has been prefilled.</span>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>📍 Where are you going?</label>
+          <input type="text" id="destination" placeholder="e.g., Paris, Bali, Tokyo" class="form-input"/>
+        </div>
+        <div class="form-group">
+          <label>✈️ Where are you starting from?</label>
+          <input type="text" id="origin" placeholder="e.g., New York City, Delhi" class="form-input"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>📅 When are you traveling?</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" onclick="toggleDateMode('picker', this)">📅 Date Picker</button>
+          <button class="toggle-btn" onclick="toggleDateMode('flexible', this)">✏️ Flexible</button>
+        </div>
+        <div id="date-picker-mode">
+          <div class="form-row mt-1">
+            <div class="form-group">
+              <label>Start Date</label>
+              <input type="date" id="start_date" class="form-input"/>
+            </div>
+            <div class="form-group">
+              <label>End Date</label>
+              <input type="date" id="end_date" class="form-input"/>
+            </div>
+          </div>
+        </div>
+        <div id="date-flexible-mode" class="hidden">
+          <input type="text" id="flexible_dates" placeholder="e.g., Christmas 2025, Early March, Summer" class="form-input mt-1"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>🕐 How many days?</label>
+        <input type="number" id="duration_days" value="5" min="1" max="60" class="form-input form-input-sm"/>
+        <span class="form-hint">Approximate number of days (leave empty if flexible)</span>
+      </div>
+    </div>
+
+    <!-- Step 2: Group Details -->
+    <div class="form-step" id="step-2">
+      <div class="step-header">
+        <h2>👥 Group Details</h2>
+        <p>Who's joining the adventure?</p>
+      </div>
+      <div class="form-group">
+        <label>Who are you traveling with?</label>
+        <div class="radio-grid" id="group-type-grid">
+          <label class="radio-card"><input type="radio" name="group_type" value="Solo"/> Solo</label>
+          <label class="radio-card active"><input type="radio" name="group_type" value="Partner" checked/> Partner</label>
+          <label class="radio-card"><input type="radio" name="group_type" value="Friends"/> Friends</label>
+          <label class="radio-card"><input type="radio" name="group_type" value="Family with kids"/> Family with kids</label>
+          <label class="radio-card"><input type="radio" name="group_type" value="Extended family"/> Extended family</label>
+          <label class="radio-card"><input type="radio" name="group_type" value="Colleagues"/> Colleagues</label>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Number of adults</label>
+          <div class="counter-input">
+            <button onclick="changeCount('num_adults', -1)">−</button>
+            <input type="number" id="num_adults" value="2" min="1" max="20" readonly/>
+            <button onclick="changeCount('num_adults', 1)">+</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Number of children</label>
+          <div class="counter-input">
+            <button onclick="changeCount('num_children', -1)">−</button>
+            <input type="number" id="num_children" value="0" min="0" max="10" readonly/>
+            <button onclick="changeCount('num_children', 1)">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Age groups of travelers</label>
+        <div class="checkbox-tag-group" id="age-groups">
+          <label class="checkbox-tag"><input type="checkbox" value="Under 18"/> Under 18</label>
+          <label class="checkbox-tag"><input type="checkbox" value="18-25"/> 18–25</label>
+          <label class="checkbox-tag"><input type="checkbox" value="26-35"/> 26–35</label>
+          <label class="checkbox-tag"><input type="checkbox" value="36-50"/> 36–50</label>
+          <label class="checkbox-tag"><input type="checkbox" value="51-65"/> 51–65</label>
+          <label class="checkbox-tag"><input type="checkbox" value="65+"/> 65+</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Budget & Style -->
+    <div class="form-step" id="step-3">
+      <div class="step-header">
+        <h2>💵 Budget & Style</h2>
+        <p>What's your travel style?</p>
+      </div>
+      <div class="form-group">
+        <label>Budget per person</label>
+        <div class="budget-display">
+          <span id="budget-display-val">$1,000</span>
+          <div class="form-group-inline">
+            <label>Currency</label>
+            <select id="currency" class="form-select">
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="INR">INR (₹)</option>
+              <option value="AUD">AUD (A$)</option>
+              <option value="CAD">CAD (C$)</option>
+              <option value="JPY">JPY (¥)</option>
+              <option value="SGD">SGD (S$)</option>
+            </select>
+          </div>
+        </div>
+        <input type="range" id="budget_range" min="100" max="500000" step="100" value="1000" class="range-slider" oninput="updateBudget(this.value)"/>
+        <div class="range-labels">
+          <span>$100</span><span>$5,000</span><span>$10,000+</span>
+        </div>
+        <input type="hidden" id="budget_per_person" value="1000"/>
+      </div>
+      <div class="form-group">
+        <label>Preferred travel style</label>
+        <div class="radio-cards-2col">
+          <label class="radio-card-lg">
+            <input type="radio" name="travel_style" value="backpacker"/>
+            <strong>Backpacker</strong>
+            <span>Budget-conscious, authentic experiences</span>
+          </label>
+          <label class="radio-card-lg active">
+            <input type="radio" name="travel_style" value="comfort" checked/>
+            <strong>Comfort</strong>
+            <span>Balance of comfort and value</span>
+          </label>
+          <label class="radio-card-lg">
+            <input type="radio" name="travel_style" value="luxury"/>
+            <strong>Luxury</strong>
+            <span>Premium experiences and stays</span>
+          </label>
+          <label class="radio-card-lg">
+            <input type="radio" name="travel_style" value="eco-conscious"/>
+            <strong>Eco-conscious</strong>
+            <span>Sustainable and responsible travel</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="checkbox-row">
+          <input type="checkbox" id="budget_flexible"/>
+          <div>
+            <strong>Budget flexibility</strong>
+            <p>Can you go a bit over budget for amazing experiences?</p>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Step 4: Trip Vibe -->
+    <div class="form-step" id="step-4">
+      <div class="step-header">
+        <h2>❤️ Trip Vibe</h2>
+        <p>What kind of experience are you looking for?</p>
+      </div>
+      <div class="form-group">
+        <label>Select your vibes (choose all that apply)</label>
+        <div class="checkbox-tag-group" id="vibes-group">
+          <label class="checkbox-tag"><input type="checkbox" value="relaxing"/> 😌 Relaxing</label>
+          <label class="checkbox-tag"><input type="checkbox" value="romantic"/> 💕 Romantic</label>
+          <label class="checkbox-tag"><input type="checkbox" value="adventure"/> 🧗 Adventure</label>
+          <label class="checkbox-tag"><input type="checkbox" value="cultural"/> 🏛️ Cultural</label>
+          <label class="checkbox-tag"><input type="checkbox" value="food-focused"/> 🍜 Food-focused</label>
+          <label class="checkbox-tag"><input type="checkbox" value="photography"/> 📸 Photography</label>
+          <label class="checkbox-tag"><input type="checkbox" value="nightlife"/> 🎉 Nightlife</label>
+          <label class="checkbox-tag"><input type="checkbox" value="family-friendly"/> 👨‍👩‍👧 Family-friendly</label>
+          <label class="checkbox-tag"><input type="checkbox" value="wellness"/> 🧘 Wellness</label>
+          <label class="checkbox-tag"><input type="checkbox" value="shopping"/> 🛍️ Shopping</label>
+          <label class="checkbox-tag"><input type="checkbox" value="nature"/> 🌿 Nature</label>
+          <label class="checkbox-tag"><input type="checkbox" value="spiritual"/> 🕌 Spiritual</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>What are your priorities? (choose up to 3)</label>
+        <div class="checkbox-tag-group" id="priorities-group">
+          <label class="checkbox-tag"><input type="checkbox" value="Unique stays"/> 🏰 Unique stays</label>
+          <label class="checkbox-tag"><input type="checkbox" value="Local experiences"/> 🤝 Local experiences</label>
+          <label class="checkbox-tag"><input type="checkbox" value="Instagram-worthy spots"/> 📱 Instagram-worthy spots</label>
+          <label class="checkbox-tag"><input type="checkbox" value="Hidden gems"/> 💎 Hidden gems</label>
+          <label class="checkbox-tag"><input type="checkbox" value="Iconic landmarks"/> 🗼 Iconic landmarks</label>
+          <label class="checkbox-tag"><input type="checkbox" value="Kid-friendly activities"/> 🎠 Kid-friendly activities</label>
+          <label class="checkbox-tag"><input type="checkbox" value="Nightlife & parties"/> 🎵 Nightlife & parties</label>
+          <label class="checkbox-tag"><input type="checkbox" value="Outdoor activities"/> 🏕️ Outdoor activities</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5: Stay Preferences -->
+    <div class="form-step" id="step-5">
+      <div class="step-header">
+        <h2>🏠 Stay Preferences</h2>
+        <p>Where will you rest?</p>
+      </div>
+      <div class="form-group">
+        <label>Preferred accommodation type</label>
+        <div class="checkbox-tag-group">
+          <label class="checkbox-tag"><input type="checkbox" name="accom_type" value="Hotel"/> 🏨 Hotel</label>
+          <label class="checkbox-tag"><input type="checkbox" name="accom_type" value="Boutique hotel"/> 🏩 Boutique hotel</label>
+          <label class="checkbox-tag"><input type="checkbox" name="accom_type" value="Resort"/> 🌴 Resort</label>
+          <label class="checkbox-tag"><input type="checkbox" name="accom_type" value="Airbnb/Apartment"/> 🏡 Airbnb/Apartment</label>
+          <label class="checkbox-tag"><input type="checkbox" name="accom_type" value="Hostel"/> 🛏️ Hostel</label>
+          <label class="checkbox-tag"><input type="checkbox" name="accom_type" value="Villa"/> 🏰 Villa</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>How many rooms do you need?</label>
+        <div class="counter-input">
+          <button onclick="changeCount('num_rooms', -1)">−</button>
+          <input type="number" id="num_rooms" value="1" min="1" max="10" readonly/>
+          <button onclick="changeCount('num_rooms', 1)">+</button>
+        </div>
+        <span class="form-hint">This helps us suggest the right accommodations</span>
+      </div>
+      <div class="form-group">
+        <label>Must-have amenities</label>
+        <div class="checkbox-tag-group">
+          <label class="checkbox-tag"><input type="checkbox" name="amenity" value="Pool"/> 🏊 Pool</label>
+          <label class="checkbox-tag"><input type="checkbox" name="amenity" value="Spa"/> 💆 Spa</label>
+          <label class="checkbox-tag"><input type="checkbox" name="amenity" value="Gym"/> 🏋️ Gym</label>
+          <label class="checkbox-tag"><input type="checkbox" name="amenity" value="Breakfast included"/> 🍳 Breakfast</label>
+          <label class="checkbox-tag"><input type="checkbox" name="amenity" value="Ocean view"/> 🌊 Ocean view</label>
+          <label class="checkbox-tag"><input type="checkbox" name="amenity" value="City center"/> 🏙️ City center</label>
+          <label class="checkbox-tag"><input type="checkbox" name="amenity" value="Free WiFi"/> 📶 Free WiFi</label>
+          <label class="checkbox-tag"><input type="checkbox" name="amenity" value="Pet friendly"/> 🐾 Pet friendly</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 6: Pace & Style -->
+    <div class="form-step" id="step-6">
+      <div class="step-header">
+        <h2>⏱️ Pace & Style</h2>
+        <p>How do you like to travel?</p>
+      </div>
+      <div class="form-group">
+        <label>How packed should your days be?</label>
+        <div class="pace-labels">
+          <span>Very relaxed</span><span>Balanced</span><span>Action-packed</span>
+        </div>
+        <input type="range" id="pace_slider" min="1" max="5" value="3" class="range-slider" oninput="updatePace(this.value)"/>
+        <p class="pace-display">Current setting: <strong id="pace-label">Balanced</strong></p>
+      </div>
+      <div class="form-group">
+        <label>Preferred start time each day</label>
+        <div class="radio-grid-3">
+          <label class="radio-card"><input type="radio" name="start_time" value="early"/> 🌅 Early bird (6–8 AM)</label>
+          <label class="radio-card active"><input type="radio" name="start_time" value="normal" checked/> ☀️ Normal (9–10 AM)</label>
+          <label class="radio-card"><input type="radio" name="start_time" value="late"/> 🌙 Late riser (10+ AM)</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Transport preference</label>
+        <div class="checkbox-tag-group">
+          <label class="checkbox-tag"><input type="checkbox" name="transport" value="Public transport"/> 🚇 Public transport</label>
+          <label class="checkbox-tag"><input type="checkbox" name="transport" value="Private taxi"/> 🚕 Private taxi</label>
+          <label class="checkbox-tag"><input type="checkbox" name="transport" value="Walk as much as possible"/> 🚶 Walk</label>
+          <label class="checkbox-tag"><input type="checkbox" name="transport" value="Rental car"/> 🚗 Rental car</label>
+          <label class="checkbox-tag"><input type="checkbox" name="transport" value="Bicycle"/> 🚲 Bicycle</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 7: Personal Touch -->
+    <div class="form-step" id="step-7">
+      <div class="step-header">
+        <h2>🌐 Personal Touch</h2>
+        <p>Tell us more about you</p>
+      </div>
+      <div class="form-group">
+        <label>Have you been to this destination before?</label>
+        <div class="radio-grid-2">
+          <label class="radio-card active"><input type="radio" name="previous_visit" value="no" checked/> 🆕 No, first time!</label>
+          <label class="radio-card"><input type="radio" name="previous_visit" value="yes"/> 🔄 Yes, been before</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Any places you've loved in the past?</label>
+        <textarea id="specific_interests" rows="3" placeholder="e.g., Loved the temples in Kyoto, enjoyed the beaches in Goa..." class="form-textarea"></textarea>
+        <span class="form-hint">This helps us understand your travel style</span>
+      </div>
+      <div class="form-group">
+        <label>Any dietary restrictions or preferences?</label>
+        <div class="checkbox-tag-group">
+          <label class="checkbox-tag"><input type="checkbox" name="dietary" value="vegetarian"/> 🥗 Vegetarian</label>
+          <label class="checkbox-tag"><input type="checkbox" name="dietary" value="vegan"/> 🌱 Vegan</label>
+          <label class="checkbox-tag"><input type="checkbox" name="dietary" value="halal"/> 🥩 Halal</label>
+          <label class="checkbox-tag"><input type="checkbox" name="dietary" value="gluten-free"/> 🌾 Gluten-free</label>
+          <label class="checkbox-tag"><input type="checkbox" name="dietary" value="kosher"/> ✡️ Kosher</label>
+          <label class="checkbox-tag"><input type="checkbox" name="dietary" value="no restrictions"/> ✅ No restrictions</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Anything else you'd like us to know?</label>
+        <textarea id="additional_info" rows="4" placeholder="e.g., This is our honeymoon, we're vegetarian, love hidden gems, avoid crowded places..." class="form-textarea"></textarea>
+        <span class="form-hint">Share any special requirements, dietary restrictions, or preferences</span>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="form-nav">
+      <button class="btn btn-outline" id="prev-btn" onclick="prevStep()" disabled>← Previous</button>
+      <span class="step-counter" id="step-counter">Step 1 of 7</span>
+      <button class="btn btn-primary" id="next-btn" onclick="nextStep()">Next →</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/plan.js') }}"></script>
+{% endblock %}

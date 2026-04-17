@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+{% block title %}{{ trip.title }} – TripCraft AI{% endblock %}
+
+{% block content %}
+<div class="result-page">
+  <!-- Trip Hero -->
+  <div class="result-hero">
+    <div class="container">
+      <h1>{{ trip.destination }} ✈️ {{ trip.origin }}</h1>
+      <p>{{ form_data.get('start_date', '') }} → {{ form_data.get('end_date', '') }} &nbsp;|&nbsp; {{ trip.duration_days }} days &nbsp;|&nbsp; {{ form_data.get('group_type', '') }}</p>
+    </div>
+  </div>
+
+  <div class="container result-container">
+    <!-- Trip Details Summary -->
+    <div class="trip-details-grid">
+      <div class="detail-card">
+        <div class="detail-card-title">📍 Destination</div>
+        <p>To: <strong>{{ form_data.get('destination', 'N/A') }}</strong></p>
+        <p>From: <strong>{{ form_data.get('origin', 'N/A') }}</strong></p>
+      </div>
+      <div class="detail-card">
+        <div class="detail-card-title">📅 Travel Dates</div>
+        <p>From: <strong>{{ form_data.get('start_date', form_data.get('flexible_dates', 'N/A')) }}</strong></p>
+        <p>Duration: <strong>{{ trip.duration_days }} days</strong></p>
+      </div>
+      <div class="detail-card">
+        <div class="detail-card-title">👥 Travelers</div>
+        <p>Type: <strong>{{ form_data.get('group_type', 'N/A') }}</strong></p>
+        <p>Group: <strong>{{ form_data.get('num_adults', 1) }} adults</strong></p>
+        <p>Ages: <strong>{{ ', '.join(form_data.get('age_groups', ['N/A'])) }}</strong></p>
+      </div>
+      <div class="detail-card">
+        <div class="detail-card-title">🏠 Accommodation</div>
+        <p>Type: <strong>{{ form_data.get('travel_style', 'N/A') }}</strong></p>
+        <p>Rooms: <strong>{{ form_data.get('num_rooms', 1) }}</strong></p>
+      </div>
+      <div class="detail-card">
+        <div class="detail-card-title">💵 Budget</div>
+        <p>Amount: <strong>{{ form_data.get('budget_per_person', 'N/A') }} {{ form_data.get('currency', '') }} per person</strong></p>
+        <p>Flexible: <strong>{{ 'Yes' if form_data.get('budget_flexible') else 'No' }}</strong></p>
+      </div>
+      <div class="detail-card">
+        <div class="detail-card-title">❤️ Trip Style</div>
+        <p>Pace: <strong>{{ form_data.get('pace', 'Balanced') }}</strong></p>
+        <div class="tag-group">
+          {% for v in form_data.get('vibes', []) %}
+            <span class="tag tag-yellow">{{ v }}</span>
+          {% endfor %}
+        </div>
+        <div class="tag-group mt-1">
+          {% for p in form_data.get('priorities', []) %}
+            <span class="tag tag-outline">{{ p }}</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    {% if form_data.get('specific_interests') or form_data.get('additional_info') %}
+    <div class="additional-info-card">
+      <strong>Additional Information</strong>
+      <div class="add-info-grid">
+        {% if form_data.get('specific_interests') %}
+        <div><span>Specific Interests:</span><p>{{ form_data.get('specific_interests') }}</p></div>
+        {% endif %}
+        {% if form_data.get('previous_visit') %}
+        <div><span>Previous Visits:</span><p>{{ form_data.get('previous_visit') }}</p></div>
+        {% endif %}
+        {% if form_data.get('dietary_restrictions') %}
+        <div><span>Dietary:</span><p>{{ form_data.get('dietary_restrictions') }}</p></div>
+        {% endif %}
+        {% if form_data.get('additional_info') %}
+        <div><span>Additional Information:</span><p>{{ form_data.get('additional_info') }}</p></div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Result Tabs -->
+    <div class="result-tabs">
+      <button class="result-tab active" onclick="switchTab('itinerary', this)">📅 Itinerary</button>
+      <button class="result-tab" onclick="switchTab('guide', this)">📍 Destination Guide</button>
+      <button class="result-tab" onclick="switchTab('flights', this)">✈️ Flights</button>
+      <button class="result-tab" onclick="switchTab('dining', this)">🍽️ Dining</button>
+      <button class="result-tab" onclick="switchTab('budget', this)">💵 Budget</button>
+    </div>
+
+    <!-- Itinerary Tab -->
+    <div class="tab-content active" id="tab-itinerary">
+      <div class="section-header"><h2>📅 Daily Itinerary</h2></div>
+      {% set itin = result.get('itinerary', {}) %}
+      {% if itin.get('days') %}
+        {% for day in itin.get('days', []) %}
+        <div class="day-card">
+          <div class="day-header">
+            <div class="day-badge">{{ day.day_number }}</div>
+            <div>
+              <h3>Day {{ day.day_number }}{% if day.get('title') %}: {{ day.title }}{% endif %}</h3>
+              {% if day.get('date') %}<span class="day-date">📅 {{ day.date }}</span>{% endif %}
+            </div>
+          </div>
+          <div class="day-slots">
+            {% for period in ['morning', 'afternoon', 'evening'] %}
+              {% set period_data = day.get(period, {}) %}
+              {% if period_data and period_data.get('time_slots') %}
+              <div class="period-card">
+                <div class="period-header">
+                  {% if period == 'morning' %}🌅{% elif period == 'afternoon' %}☀️{% else %}🌙{% endif %}
+                  <strong>{{ period|capitalize }}</strong>
+                </div>
+                <div class="period-slots">
+                  {% for slot in period_data.get('time_slots', []) %}
+                  <div class="time-slot">
+                    {% if slot.get('time') %}<span class="slot-time">{{ slot.time }}</span>{% endif %}
+                    <span class="slot-activity">{{ slot.get('activity', '') }}</span>
+                    {% if slot.get('notes') %}<span class="slot-notes">📝 {{ slot.notes }}</span>{% endif %}
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">No itinerary data available.</div>
+      {% endif %}
+
+      {% if itin.get('general_tips') %}
+      <div class="tips-card">
+        <h4>💡 General Tips</h4>
+        <ul>{% for t in itin.general_tips %}<li>{{ t }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Destination Guide Tab -->
+    <div class="tab-content" id="tab-guide">
+      {% set guide = result.get('destination_guide', {}) %}
+      <div class="section-header">
+        <h2>📍 Destination Guide</h2>
+        <p>Tourist information and recommendations for {{ trip.destination }}</p>
+      </div>
+      {% if guide.get('overview') %}
+      <div class="guide-block">
+        <h4>Overview</h4>
+        <p>{{ guide.overview }}</p>
+      </div>
+      {% endif %}
+      {% if guide.get('main_attractions') %}
+      <div class="guide-block">
+        <h4>🗼 Main Attractions</h4>
+        {% for attr in guide.main_attractions %}
+        <div class="attraction-card">
+          <strong>{{ attr.get('name', '') }}</strong>
+          <span class="attr-type">{{ attr.get('type', '') }}</span>
+          <p>{{ attr.get('highlights', '') }}</p>
+          <div class="attr-meta">
+            {% if attr.get('location') %}<span>📍 {{ attr.location }}</span>{% endif %}
+            {% if attr.get('opening_hours') %}<span>🕐 {{ attr.opening_hours }}</span>{% endif %}
+            {% if attr.get('entrance_fee') %}<span>💵 {{ attr.entrance_fee }}</span>{% endif %}
+          </div>
+          {% if attr.get('tips') %}<p class="attr-tip">💡 {{ attr.tips }}</p>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if guide.get('local_transport') %}
+      <div class="guide-block">
+        <h4>🚇 Local Transport</h4>
+        <p><strong>Airport to City:</strong> {{ guide.local_transport.get('airport_to_city', '') }}</p>
+        <div class="tag-group">{% for o in guide.local_transport.get('options', []) %}<span class="tag tag-outline">{{ o }}</span>{% endfor %}</div>
+        <ul>{% for t in guide.local_transport.get('tips', []) %}<li>{{ t }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+      {% if guide.get('culture_etiquette') %}
+      <div class="guide-block">
+        <h4>🌍 Culture & Etiquette</h4>
+        <ul>{% for t in guide.culture_etiquette %}<li>{{ t }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+      {% if guide.get('safety_tips') %}
+      <div class="guide-block">
+        <h4>🛡️ Safety Tips</h4>
+        <ul>{% for t in guide.safety_tips %}<li>{{ t }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+      {% if guide.get('emergency_contacts') %}
+      <div class="guide-block emergency-block">
+        <h4>🚨 Emergency Contacts</h4>
+        <div class="emergency-grid">
+          {% for k, v in guide.emergency_contacts.items() %}
+          <div><strong>{{ k|capitalize }}:</strong> {{ v }}</div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Flights Tab -->
+    <div class="tab-content" id="tab-flights">
+      {% set flights = result.get('flights', {}) %}
+      <div class="section-header"><h2>✈️ Selected Flights</h2></div>
+      <h4 class="flights-subtitle">Outbound: {{ form_data.get('origin') }} → {{ form_data.get('destination') }}</h4>
+      {% for f in flights.get('outbound_flights', []) %}
+      <div class="flight-card {% if loop.index0 == flights.get('recommended_outbound_index', 0) %}flight-recommended{% endif %}">
+        {% if loop.index0 == flights.get('recommended_outbound_index', 0) %}<div class="recommended-badge">✅ Recommended</div>{% endif %}
+        <div class="flight-header">
+          <span class="airline-name">✈️ {{ f.get('airline', 'Airline') }}</span>
+          <span class="flight-number">{{ f.get('flight_number', '') }}</span>
+        </div>
+        <div class="flight-meta">
+          <div><span>⏱ Duration:</span><strong>{{ f.get('duration', 'N/A') }}</strong></div>
+          <div><span>💵 Price:</span><strong>{{ f.get('currency', '') }} {{ f.get('price_per_person', 'N/A') }}</strong></div>
+          <div><span>🛫 Departure:</span><strong>{{ f.get('departure_time', 'N/A') }}</strong></div>
+          <div><span>🛬 Arrival:</span><strong>{{ f.get('arrival_time', 'N/A') }}</strong></div>
+          <div><span>🔄 Stops:</span><strong>{{ f.get('stops', 0) }}</strong></div>
+          <div><span>💺 Class:</span><strong>{{ f.get('booking_class', 'Economy') }}</strong></div>
+        </div>
+        {% if f.get('notes') %}<p class="flight-notes">📝 {{ f.notes }}</p>{% endif %}
+      </div>
+      {% endfor %}
+
+      <h4 class="flights-subtitle">Return: {{ form_data.get('destination') }} → {{ form_data.get('origin') }}</h4>
+      {% for f in flights.get('return_flights', []) %}
+      <div class="flight-card {% if loop.index0 == flights.get('recommended_return_index', 0) %}flight-recommended{% endif %}">
+        {% if loop.index0 == flights.get('recommended_return_index', 0) %}<div class="recommended-badge">✅ Recommended</div>{% endif %}
+        <div class="flight-header">
+          <span class="airline-name">✈️ {{ f.get('airline', 'Airline') }}</span>
+          <span class="flight-number">{{ f.get('flight_number', '') }}</span>
+        </div>
+        <div class="flight-meta">
+          <div><span>⏱ Duration:</span><strong>{{ f.get('duration', 'N/A') }}</strong></div>
+          <div><span>💵 Price:</span><strong>{{ f.get('currency', '') }} {{ f.get('price_per_person', 'N/A') }}</strong></div>
+          <div><span>🛫 Departure:</span><strong>{{ f.get('departure_time', 'N/A') }}</strong></div>
+          <div><span>🛬 Arrival:</span><strong>{{ f.get('arrival_time', 'N/A') }}</strong></div>
+          <div><span>🔄 Stops:</span><strong>{{ f.get('stops', 0) }}</strong></div>
+        </div>
+      </div>
+      {% endfor %}
+
+      {% if flights.get('booking_tips') %}
+      <div class="tips-card">
+        <h4>✈️ Booking Tips</h4>
+        <ul>{% for t in flights.booking_tips %}<li>{{ t }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Dining Tab -->
+    <div class="tab-content" id="tab-dining">
+      {% set dining = result.get('dining', {}) %}
+      <div class="section-header">
+        <h2>🍽️ Restaurant Recommendations</h2>
+        <p>Dining options for your trip</p>
+      </div>
+      {% if dining.get('intro') %}<p class="dining-intro">{{ dining.intro }}</p>{% endif %}
+      {% for r in dining.get('restaurants', []) %}
+      <div class="restaurant-card">
+        <div class="restaurant-header">
+          <h4>{{ r.get('name', '') }}</h4>
+          <span class="price-range">{{ r.get('price_range', '') }}</span>
+        </div>
+        <div class="restaurant-meta">
+          <span>🍴 {{ r.get('cuisine', '') }}</span>
+          <span>🕐 {{ r.get('meal_type', '') }}</span>
+          {% if r.get('rating') %}<span>⭐ {{ r.rating }}</span>{% endif %}
+        </div>
+        {% if r.get('location') %}<p class="restaurant-location">📍 {{ r.location }}</p>{% endif %}
+        {% if r.get('highlights') %}
+        <div class="tag-group">{% for h in r.highlights %}<span class="tag tag-outline">{{ h }}</span>{% endfor %}</div>
+        {% endif %}
+        {% if r.get('must_try') %}<p>🌟 <strong>Must try:</strong> {{ r.must_try }}</p>{% endif %}
+        {% if r.get('operating_hours') %}<p>🕐 {{ r.operating_hours }}</p>{% endif %}
+        {% if r.get('dietary_options') %}
+        <div class="tag-group">{% for d in r.dietary_options %}<span class="tag tag-green">{{ d }}</span>{% endfor %}</div>
+        {% endif %}
+        {% if r.get('why_recommended') %}<p class="why-rec">💬 {{ r.why_recommended }}</p>{% endif %}
+      </div>
+      {% endfor %}
+      {% if dining.get('dining_tips') %}
+      <div class="tips-card">
+        <h4>🍽️ Dining Tips</h4>
+        <ul>{% for t in dining.dining_tips %}<li>{{ t }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Budget Tab -->
+    <div class="tab-content" id="tab-budget">
+      {% set budget = result.get('budget', {}) %}
+      <div class="section-header">
+        <h2>💵 Budget Analysis</h2>
+        <p>Budget recommendations and optimization strategies</p>
+      </div>
+      {% set summary = budget.get('budget_summary', {}) %}
+      {% set breakdown = budget.get('cost_breakdown_per_person', {}) %}
+      {% if summary %}
+      <div class="budget-summary-card">
+        <div class="budget-stat">
+          <span>Budget per person</span>
+          <strong>{{ summary.get('currency', '') }} {{ summary.get('budget_per_person', 'N/A') }}</strong>
+        </div>
+        <div class="budget-stat">
+          <span>Total budget</span>
+          <strong>{{ summary.get('currency', '') }} {{ summary.get('total_budget', 'N/A') }}</strong>
+        </div>
+        <div class="budget-stat">
+          <span>Estimated total</span>
+          <strong>{{ summary.get('currency', '') }} {{ budget.get('total_for_group', 'N/A') }}</strong>
+        </div>
+        <div class="budget-stat">
+          <span>Status</span>
+          <strong class="budget-status-{{ budget.get('budget_status', 'within').replace('_', '-') }}">
+            {{ budget.get('budget_status', 'N/A')|replace('_', ' ')|title }}
+          </strong>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if breakdown %}
+      <div class="budget-breakdown">
+        <h4>Cost Breakdown (per person)</h4>
+        {% for key, val in breakdown.items() %}
+        {% if key != 'total_estimated' %}
+        <div class="budget-row">
+          <span>{{ key|replace('_', ' ')|title }}</span>
+          <span>{{ summary.get('currency', '') }} {{ val }}</span>
+        </div>
+        {% endif %}
+        {% endfor %}
+        <div class="budget-row total-row">
+          <span>Total Estimated</span>
+          <strong>{{ summary.get('currency', '') }} {{ breakdown.get('total_estimated', 'N/A') }}</strong>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if budget.get('savings_tips') %}
+      <div class="guide-block">
+        <h4>💡 Savings Tips</h4>
+        {% for tip in budget.savings_tips %}
+        <div class="saving-tip">
+          <strong>{{ tip.get('tip', '') }}</strong>
+          {% if tip.get('potential_saving') %}<span class="saving-amount">Save: {{ tip.potential_saving }}</span>{% endif %}
+          <p>{{ tip.get('description', '') }}</p>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if budget.get('day_wise_budget') %}
+      <div class="guide-block">
+        <h4>📅 Day-wise Budget Estimate</h4>
+        {% for d in budget.day_wise_budget %}
+        <div class="budget-row">
+          <span>Day {{ d.get('day', '') }}: {{ d.get('breakdown', '') }}</span>
+          <span>{{ summary.get('currency', '') }} {{ d.get('estimated_spend', '') }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if budget.get('final_recommendation') %}
+      <div class="guide-block">
+        <h4>📋 Final Recommendation</h4>
+        <p>{{ budget.final_recommendation }}</p>
+      </div>
+      {% endif %}
+    </div>
+
+  </div><!-- end container -->
+</div><!-- end result-page -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+function switchTab(tab, el) {
+  document.querySelectorAll('.result-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+</script>
+{% endblock %}
