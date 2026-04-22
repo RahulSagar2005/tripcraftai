@@ -2,6 +2,61 @@ from utils.llm_client import call_llm_json
 from utils.exa_search import search_attractions, search_destination_guide
 
 
+def _generate_fallback_itinerary(trip_data: dict, hotel_data: dict, flight_data: dict, food_data: dict) -> dict:
+    """Generate a basic fallback itinerary when LLM fails."""
+    destination = trip_data.get("destination", "Destination")
+    origin = trip_data.get("origin", "Origin")
+    start_date = trip_data.get("start_date", "2026-01-01")
+    duration = trip_data.get("duration_days", 3)
+    hotel_name = hotel_data.get("recommended_hotel", {}).get("name", "your hotel")
+
+    days = []
+    current_date = start_date
+
+    # Day 0 - Arrival day
+    days.append({
+        "day_number": 0,
+        "date": start_date,
+        "title": f"Arrival in {destination}",
+        "morning": {"time_slots": [{"time": "6:00 AM", "activity": f"Departure from {origin}", "notes": "Arrive at airport 2-3 hours early"}]},
+        "afternoon": {"time_slots": [
+            {"time": "2:00 PM", "activity": f"Arrive at {destination}", "notes": "Clear immigration and customs"},
+            {"time": "3:00 PM", "activity": f"Transfer to {hotel_name}", "notes": "Take a taxi or pre-booked transfer"}
+        ]},
+        "evening": {"time_slots": [
+            {"time": "6:00 PM", "activity": "Check-in and freshen up", "notes": "Rest after long journey"},
+            {"time": "8:00 PM", "activity": "Dinner at a nearby restaurant", "notes": "Keep it light for first evening"}
+        ]}
+    })
+
+    # Generate remaining days with generic structure
+    for day_num in range(1, duration):
+        days.append({
+            "day_number": day_num,
+            "date": current_date,
+            "title": f"Day {day_num} in {destination}",
+            "morning": {"time_slots": [
+                {"time": "9:00 AM", "activity": "Breakfast at hotel", "notes": "Start your day with energy"},
+                {"time": "10:00 AM", "activity": f"Explore {destination} - Morning sightseeing", "notes": "Visit popular attractions"}
+            ]},
+            "afternoon": {"time_slots": [
+                {"time": "1:00 PM", "activity": "Lunch at local restaurant", "notes": "Try local cuisine"},
+                {"time": "3:00 PM", "activity": f"Afternoon exploration in {destination}", "notes": "Continue sightseeing"}
+            ]},
+            "evening": {"time_slots": [
+                {"time": "7:00 PM", "activity": "Dinner", "notes": "Enjoy evening meal"},
+                {"time": "9:00 PM", "activity": "Return to hotel", "notes": "Rest for next day"}
+            ]}
+        })
+
+    return {
+        "days": days,
+        "general_tips": [f"Research {destination} attractions before visiting", "Keep important documents safe", "Stay hydrated and take breaks"],
+        "best_neighborhoods": [f"City center of {destination}", "Tourist district"],
+        "transport_notes": f"Use public transport or taxis for getting around {destination}"
+    }
+
+
 def run_planner_agent(trip_data: dict, hotel_data: dict, flight_data: dict, food_data: dict) -> dict:
     """
     Travel Planner Agent: Creates the full day-by-day itinerary + destination guide.
@@ -115,6 +170,12 @@ Respond with this exact JSON (all {duration} days including Day 0):
 Generate ALL {duration} days (Day 0 through Day {duration-1}). Each day should have 3-5 time slots per section. Make it genuinely useful and specific to {destination}.
 """
     result = call_llm_json(prompt, max_tokens=6000)
+
+    # Check if LLM failed and use fallback
+    if result.get("error") or not result.get("days") or len(result.get("days", [])) == 0:
+        print(f"[Planner Agent] LLM failed, using fallback itinerary")
+        result = _generate_fallback_itinerary(trip_data, hotel_data, flight_data, food_data)
+
     print(f"[Planner Agent] Done. Generated {len(result.get('days', []))} days.")
     return result
 

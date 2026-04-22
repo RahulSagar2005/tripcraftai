@@ -9,13 +9,15 @@ class Config:
     DB_NAME = 'tripcraft'
 
     # LLM APIs - FREE MODELS ONLY
+    # NVIDIA API (free tier, high limits) - Get key: https://build.nvidia.com/
+    NVIDIA_API_KEY = os.environ.get('NVIDIA_API_KEY', '')
     # Ollama (local) - No API key needed, runs on localhost:11434
     # Hugging Face (free tier) - Get key: https://huggingface.co/settings/tokens
     HUGGINGFACE_API_KEY = os.environ.get('HUGGINGFACE_API_KEY', '')
     # OpenRouter (free models) - Get key: https://openrouter.ai/keys
     OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY', '')
     # Google Gemini (free tier available) - Get key: https://aistudio.google.com/app/apikey
-    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+    GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
 
     # Travel APIs (Free tiers)
     EXA_API_KEY = os.environ.get('EXA_API_KEY', '')

@@ -8,9 +8,19 @@ from config import Config
 OLLAMA_BASE = "http://localhost:11434"
 OLLAMA_MODEL = "llama3.2"
 
-# Google Gemini API Configuration (Primary Cloud - Free Tier)
+# NVIDIA API Configuration (Primary Cloud - Free Tier, High Limits)
+NVIDIA_API_KEY = Config.NVIDIA_API_KEY
+NVIDIA_API_BASE = "https://integrate.api.nvidia.com/v1"
+# Use available free model on NVIDIA (must use exact model ID)
+NVIDIA_MODEL = "meta-llama/llama-3.1-70b-instruct"
+
+# Alternative: Try NVIDIA's catalog model format
+NVIDIA_MODEL_ALT = "nvidia/llama-3.1-nemotron-70b-instruct"
+
+# Google Gemini API Configuration (Secondary Cloud - Free Tier)
 GEMINI_API_KEY = Config.GOOGLE_API_KEY
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+# Use gemini-1.5-flash - gemini-pro is deprecated
 GEMINI_MODEL = "gemini-1.5-flash"
 
 # Hugging Face Inference API (Free Tier - Fallback)
@@ -19,7 +29,7 @@ HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
 
 # OpenRouter API Configuration (Free Models Only - Last Fallback)
 OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
-OPENROUTER_MODEL = "google/gemma-2-9b-it:free"
+OPENROUTER_MODEL = "meta-llama/llama-3-8b-instruct"
 
 
 def _call_ollama(prompt: str, system_prompt: str = "", max_tokens: int = 4096) -> str:
@@ -125,11 +135,69 @@ def _call_huggingface(prompt: str, system_prompt: str = "", max_tokens: int = 40
         return None
 
 
+def _call_nvidia(prompt: str, system_prompt: str = "", max_tokens: int = 4096) -> str:
+    """Call NVIDIA API (free tier - primary cloud option)"""
+    if not NVIDIA_API_KEY:
+        return None
+
+    headers = {
+        "Authorization": f"Bearer {NVIDIA_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+
+    payload = {
+        "model": NVIDIA_MODEL,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": 0.7,
+        "stream": False
+    }
+
+    try:
+        # NVIDIA uses /chat/completions endpoint
+        url = f"{NVIDIA_API_BASE}/chat/completions"
+        resp = requests.post(url, headers=headers, json=payload, timeout=120)
+
+        if resp.status_code == 401:
+            print("[NVIDIA] Authentication failed - check API key")
+            return None
+        elif resp.status_code == 404:
+            # Try alternative model
+            print(f"[NVIDIA] Model '{NVIDIA_MODEL}' not available, trying alternative...")
+            payload["model"] = "mistralai/mistral-large-2-instruct"
+            resp = requests.post(url, headers=headers, json=payload, timeout=120)
+            if resp.status_code == 404:
+                print("[NVIDIA] Alternative model also unavailable. Check https://build.nvidia.com/")
+                return None
+
+        if resp.status_code == 429:
+            print("[NVIDIA] Rate limited")
+            return None
+        elif resp.status_code >= 400:
+            print(f"[NVIDIA] Error {resp.status_code}: {resp.text[:200]}")
+            return None
+
+        data = resp.json()
+        if "choices" in data and len(data["choices"]) > 0:
+            return data["choices"][0]["message"]["content"]
+        return None
+
+    except Exception as e:
+        print(f"[NVIDIA] Error: {type(e).__name__}: {e}")
+        return None
+
+
 def _call_openrouter(prompt: str, system_prompt: str = "", max_tokens: int = 4000) -> str:
     """Call OpenRouter API with FREE models only"""
     api_key = Config.OPENROUTER_API_KEY
-    # Check for valid OpenRouter key format
-    if not api_key or not (api_key.startswith("sk-or-") or api_key.startswith("sk-or-v1-")) or len(api_key) < 15:
+    # Check for valid OpenRouter key format (v1 or v2)
+    if not api_key or not api_key.startswith("sk-or-") or len(api_key) < 15:
         return None
 
     headers = {
@@ -144,12 +212,12 @@ def _call_openrouter(prompt: str, system_prompt: str = "", max_tokens: int = 400
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    # Use only FREE models available on OpenRouter
+    # Use only FREE models available on OpenRouter (without :free suffix)
     free_models = [
-        "google/gemma-2-9b-it:free",
-        "meta-llama/llama-3-8b-instruct:free",
-        "mistralai/mistral-7b-instruct:free",
-        "google/gemma-7b-it:free"
+        "meta-llama/llama-3-8b-instruct",
+        "meta-llama/llama-3.1-8b-instruct",
+        "google/gemma-2-9b-it",
+        "mistralai/mistral-7b-instruct-v0.3"
     ]
 
     payload = {
@@ -209,13 +277,14 @@ def _call_gemini(prompt: str, system_prompt: str = "", max_tokens: int = 8192) -
     if not GEMINI_API_KEY:
         return None
 
+    # Use the correct Gemini model name
+    model_name = "gemini-1.5-flash"
+
     headers = {"Content-Type": "application/json"}
     system_instruction = system_prompt if system_prompt else "You are a helpful travel assistant."
 
     payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }],
+        "contents": [{"parts": [{"text": prompt}]}],
         "systemInstruction": {"parts": [{"text": system_instruction}]},
         "generationConfig": {
             "maxOutputTokens": max_tokens,
@@ -224,15 +293,19 @@ def _call_gemini(prompt: str, system_prompt: str = "", max_tokens: int = 8192) -
     }
 
     try:
-        resp = requests.post(
-            f"{GEMINI_API_BASE}/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}",
-            headers=headers,
-            json=payload,
-            timeout=120
-        )
+        url = f"{GEMINI_API_BASE}/models/{model_name}:generateContent?key={GEMINI_API_KEY}"
+        resp = requests.post(url, headers=headers, json=payload, timeout=120)
 
         if resp.status_code == 400:
-            print(f"[Gemini] Bad request - {resp.json()}")
+            error_data = resp.json()
+            error_msg = error_data.get('error', {}).get('message', 'Unknown error')
+            if "API_KEY_INVALID" in error_msg:
+                print("[Gemini] Invalid API key - get new key at https://aistudio.google.com/app/apikey")
+            else:
+                print(f"[Gemini] Bad request - {error_msg}")
+            return None
+        elif resp.status_code == 404:
+            print(f"[Gemini] 404 - Model '{model_name}' not found or API key invalid.")
             return None
         elif resp.status_code == 429:
             print(f"[Gemini] Rate limited (free tier limit reached)")
@@ -261,14 +334,29 @@ def call_llm(prompt: str, system_prompt: str = "", max_tokens: int = 4096) -> st
     """
     Call LLM with automatic fallback chain (FREE MODELS ONLY):
     1. Ollama local LLM (primary - completely free, no API key needed)
-    2. Hugging Face Inference API (free tier, requires HF API key)
-    3. OpenRouter API (free models only)
-    4. Google Gemini API (last fallback)
+    2. NVIDIA API (free tier, high limits - primary cloud)
+    3. Google Gemini API (free tier)
+    4. Hugging Face Inference API (free tier)
+    5. OpenRouter API (free models only)
     """
     # Try Ollama first (local, completely free)
     result = _call_ollama(prompt, system_prompt, max_tokens)
     if result:
         return result
+
+    # Try NVIDIA second (free tier, high limits)
+    if NVIDIA_API_KEY:
+        print("[LLM] Falling back to NVIDIA...")
+        result = _call_nvidia(prompt, system_prompt, max_tokens)
+        if result:
+            return result
+
+    # Try Gemini third (free tier)
+    if GEMINI_API_KEY:
+        print("[LLM] Falling back to Gemini...")
+        result = _call_gemini(prompt, system_prompt, max_tokens)
+        if result:
+            return result
 
     # Try Hugging Face (free tier)
     hf_key = os.environ.get("HUGGINGFACE_API_KEY", "")
@@ -278,27 +366,43 @@ def call_llm(prompt: str, system_prompt: str = "", max_tokens: int = 4096) -> st
         if result:
             return result
 
-    # Try OpenRouter (free models)
+    # Try OpenRouter last (free models)
     if Config.OPENROUTER_API_KEY:
         print("[LLM] Falling back to OpenRouter (free models)...")
         result = _call_openrouter(prompt, system_prompt, max_tokens)
         if result:
             return result
 
-    # Try Gemini last
-    if GEMINI_API_KEY:
-        print("[LLM] Falling back to Gemini...")
-        result = _call_gemini(prompt, system_prompt, max_tokens)
-        if result:
-            return result
+    return "Error: All LLM providers unavailable. Please install Ollama (ollama.ai) and run 'ollama pull llama3.2', or check your API keys."
 
-    return "Error: All LLM providers unavailable. Please install Ollama (ollama.ai) and run 'ollama pull llama3.2', or set HUGGINGFACE_API_KEY or OPENROUTER_API_KEY environment variables."
+
+def _fix_json_expressions(text: str) -> str:
+    """Fix common JSON issues like uncomputed expressions (e.g., '100 * 4' -> '400')."""
+    import re
+
+    # Fix multiplication expressions like "100 * 4"
+    def eval_mult(match):
+        try:
+            expr = match.group(0)
+            # Only allow simple arithmetic
+            result = eval(expr.replace(" ", ""))
+            return str(result)
+        except:
+            return match.group(0)
+
+    # Pattern for simple arithmetic in JSON values
+    text = re.sub(r'(?<=[:\s,])\s*\d+\s*[\*\+\-\/]\s*\d+\s*(?=[,\}\]])', eval_mult, text)
+
+    return text
 
 
 def call_llm_json(prompt: str, system_prompt: str = "", max_tokens: int = 4000) -> dict:
-    json_system = (system_prompt or "") + "\nYou MUST respond with valid JSON only. No markdown, no code fences. Just raw JSON."
+    json_system = (system_prompt or "") + "\nYou MUST respond with valid JSON only. No markdown, no code fences, no arithmetic expressions. Just raw JSON with computed numbers."
 
     raw = call_llm(prompt, json_system, max_tokens)
+
+    if not raw or raw.startswith("Error:"):
+        return {"error": "No response from LLM", "raw_error": raw}
 
     raw = raw.strip()
 
@@ -315,16 +419,33 @@ def call_llm_json(prompt: str, system_prompt: str = "", max_tokens: int = 4000) 
 
     raw = raw.strip()
 
+    # Fix common issues like uncomputed expressions
+    raw = _fix_json_expressions(raw)
+
     try:
         return json.loads(raw)
     except json.JSONDecodeError as e:
-        print(f"[JSON Parse Error] {e}\nRaw: {raw[:500]}")
+        print(f"[JSON Parse Error] {e}")
         # Try to extract JSON from the response
         import re
         json_match = re.search(r'\{[\s\S]*\}', raw)
         if json_match:
             try:
                 return json.loads(json_match.group())
-            except:
-                pass
+            except json.JSONDecodeError as e2:
+                print(f"[JSON Parse Error 2] {e2}")
+                # Last resort: try to fix common issues
+                fixed = json_match.group()
+                # Remove trailing commas
+                fixed = re.sub(r',\s*}', '}', fixed)
+                fixed = re.sub(r',\s*]', ']', fixed)
+                # Fix missing quotes around keys
+                fixed = re.sub(r'([{,]\s*)([a-zA-Z_][a-zA-Z_0-9]*)\s*:', r'\1"\2":', fixed)
+                # Fix single quotes to double quotes
+                fixed = fixed.replace("'", '"')
+                try:
+                    return json.loads(fixed)
+                except Exception as e3:
+                    print(f"[JSON Parse Error 3] {e3}")
+                    pass
         return {"error": str(e), "raw": raw[:1000]}

@@ -55,6 +55,9 @@ def search_flights_serp(origin: str, destination: str, date: str) -> list:
 
         resp = requests.get(url, params=params, timeout=30)
 
+        if resp.status_code == 401:
+            print("[SerpAPI] Authentication failed - check API key at https://serpapi.com/manage-api-key")
+            return []
         if resp.status_code == 400:
             print(f"[SerpAPI] Bad request for {origin_code} -> {dest_code}. Using web search fallback.")
             return []
@@ -125,6 +128,55 @@ def search_hotels_serp(destination: str, check_in: str, check_out: str) -> list:
         return []
 
 
+def _geocode_location(destination: str) -> tuple:
+    """
+    Get lat/lng coordinates for a destination using SerpAPI or simple fallback.
+    Returns (lat, lng) or None if not found.
+    """
+    # Common India cities coordinates (fallback)
+    india_coords = {
+        "amritsar": (31.6340, 74.8723),
+        "chandigarh": (30.7333, 76.7794),
+        "ludhiana": (30.9010, 75.8573),
+        "patiala": (30.3398, 76.3869),
+        "patiala": (30.3398, 76.3869),
+        "jalandhar": (31.3260, 75.5762),
+        "punjab": (30.7333, 76.7794),  # Default to Chandigarh (Punjab capital)
+        "delhi": (28.6139, 77.2090),
+        "mumbai": (19.0760, 72.8777),
+        "bangalore": (12.9716, 77.5946),
+        "chennai": (13.0827, 80.2707),
+        "kolkata": (22.5726, 88.3639),
+        "goa": (15.2993, 74.1240),
+        "jaipur": (26.9124, 75.7873),
+        "kerala": (10.8505, 76.2711)
+    }
+
+    dest_lower = destination.lower().strip()
+    if dest_lower in india_coords:
+        return india_coords[dest_lower]
+
+    # Try SerpAPI geocoding
+    if Config.SERPAPI_KEY:
+        try:
+            url = "https://serpapi.com/search.json"
+            params = {
+                "engine": "google_maps",
+                "q": destination,
+                "api_key": Config.SERPAPI_KEY
+            }
+            resp = requests.get(url, params=params, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                if "place_results" in data:
+                    gps = data["place_results"].get("gps_coordinates", {})
+                    return (gps.get("latitude"), gps.get("longitude"))
+        except:
+            pass
+
+    return None
+
+
 def search_restaurants_serp(destination: str) -> list:
     """
     Search restaurants using SerpAPI (Google Maps results).
@@ -132,15 +184,20 @@ def search_restaurants_serp(destination: str) -> list:
     if not Config.SERPAPI_KEY:
         return []
 
+    coords = _geocode_location(destination)
+
     try:
         url = "https://serpapi.com/search.json"
         params = {
             "engine": "google_maps",
             "type": "restaurant",
             "q": f"best restaurants in {destination}",
-            "ll": f"@{destination}",  # Use location search
             "api_key": Config.SERPAPI_KEY
         }
+
+        # Use coordinates if available
+        if coords:
+            params["ll"] = f"@{coords[0]},{coords[1]},13z"
 
         resp = requests.get(url, params=params, timeout=30)
 
@@ -176,14 +233,22 @@ def search_attractions_serp(destination: str) -> list:
     if not Config.SERPAPI_KEY:
         return []
 
+    coords = _geocode_location(destination)
+
     try:
         url = "https://serpapi.com/search.json"
+
+        # Use google_maps_places engine for better results
         params = {
             "engine": "google_maps",
             "type": "attraction",
-            "q": f"top attractions in {destination}",
+            "q": destination,
             "api_key": Config.SERPAPI_KEY
         }
+
+        # Use coordinates if available - format: @lat,lng,zoom
+        if coords:
+            params["ll"] = f"@{coords[0]},{coords[1]},12z"
 
         resp = requests.get(url, params=params, timeout=30)
 
