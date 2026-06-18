@@ -3,11 +3,16 @@ services:
     name: tripcraft-ai
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    healthCheckPath: /health
     envVars:
-      - key: MONGO_URI
+      - key: MONGODB_URI
         sync: false
       - key: SECRET_KEY
         sync: false
-      - key: GEMINI_API_KEY
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: SERPAPI_KEY
         sync: false

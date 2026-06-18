@@ -81,14 +81,20 @@ def _duckduckgo_search(query: str, num_results: int = 5) -> list:
         return []
 
 
-def search_flights(origin: str, destination: str, date: str) -> list:
+def search_flights(origin: str, destination: str, date: str, return_date: str = None) -> list:
     """
-    Search flights - tries SerpAPI first (real Google Flights data), then Exa web search.
+    Search flights - tries SerpAPI first (real Google Flights data), then web search.
+
+    Args:
+        origin:        IATA code or city name for departure
+        destination:   IATA code or city name for arrival
+        date:          outbound date (YYYY-MM-DD)
+        return_date:   return date (YYYY-MM-DD) for round trips, optional
     """
     from utils.travel_api import search_flights_serp
 
     # Try SerpAPI first (real flight data from Google Flights)
-    serp_results = search_flights_serp(origin, destination, date)
+    serp_results = search_flights_serp(origin, destination, date, return_date=return_date)
     if serp_results:
         print(f"[Flight Search] Found {len(serp_results)} flights via SerpAPI")
         return serp_results

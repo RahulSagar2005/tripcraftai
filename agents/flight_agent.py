@@ -15,11 +15,13 @@ def run_flight_agent(trip_data: dict) -> dict:
     num_adults = trip_data.get("num_adults", 1)
     transport_pref = trip_data.get("transport_pref", [])
 
-    print(f"[Flight Agent] Searching flights: {origin} → {destination} on {start_date}")
+    print(f"[Flight Agent] Searching flights: {origin} -> {destination} on {start_date}")
 
-    # Fetch real search results
-    outbound_results = search_flights(origin, destination, start_date)
-    return_results = search_flights(destination, origin, end_date)
+    # Fetch real search results.
+    # Outbound: origin -> destination on start_date, returning on end_date (round trip).
+    # Return:   destination -> origin on end_date (treated as one-way — no return_date).
+    outbound_results = search_flights(origin, destination, start_date, return_date=end_date)
+    return_results = search_flights(destination, origin, end_date, return_date=None)
 
     outbound_context = "\n".join([
         f"- {r['title']}: {r['snippet']}" for r in outbound_results

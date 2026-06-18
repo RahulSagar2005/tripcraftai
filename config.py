@@ -3,31 +3,46 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
     MONGODB_URI = os.environ.get('MONGODB_URI', 'mongodb://localhost:27017/tripcraft')
     DB_NAME = 'tripcraft'
 
-    # LLM APIs - FREE MODELS ONLY
-    # NVIDIA API (free tier, high limits) - Get key: https://build.nvidia.com/
-    NVIDIA_API_KEY = os.environ.get('NVIDIA_API_KEY', '')
-    # Ollama (local) - No API key needed, runs on localhost:11434
-    # Hugging Face (free tier) - Get key: https://huggingface.co/settings/tokens
-    HUGGINGFACE_API_KEY = os.environ.get('HUGGINGFACE_API_KEY', '')
-    # OpenRouter (free models) - Get key: https://openrouter.ai/keys
+    # ── LLM API keys (FREE TIER ONLY) ──────────────────────────────────────
+    # Primary cloud (free models, confirmed working)
+    # Get a key: https://openrouter.ai/keys
     OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY', '')
-    # Google Gemini (free tier available) - Get key: https://aistudio.google.com/app/apikey
-    GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
 
-    # Travel APIs (Free tiers)
-    EXA_API_KEY = os.environ.get('EXA_API_KEY', '')
-    FIRECRAWL_API_KEY = os.environ.get('FIRECRAWL_API_KEY', '')
+    # Secondary cloud (free tier, has known-working model list)
+    # Get a key: https://build.nvidia.com/
+    NVIDIA_API_KEY = os.environ.get('NVIDIA_API_KEY', '')
 
-    # SerpAPI - Free 100 searches/month (easiest to get)
+    # Optional: Hugging Face free-tier fallback
+    # Get a key: https://huggingface.co/settings/tokens
+    HUGGINGFACE_API_KEY = os.environ.get('HUGGINGFACE_API_KEY', '')
+
+    # Optional local LLM (no key, runs on localhost:11434) - install from
+    # https://ollama.ai and run `ollama pull llama3.2`
+
+    # Gemini is intentionally NOT used. The previous key was banned by
+    # Google (403 - reported as leaked). The slot is kept commented for
+    # reference and a future brand-new key.
+    # GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
+
+    # ── Travel APIs ────────────────────────────────────────────────────────
+    # SerpAPI - free 100 searches/month (Google Flights, Hotels, Maps)
+    # Get a key: https://serpapi.com/users/signup (no credit card)
     SERPAPI_KEY = os.environ.get('SERPAPI_KEY', '')
 
-    # RapidAPI (for multiple travel APIs)
+    # Exa (web search) - free 1000 searches/month
+    EXA_API_KEY = os.environ.get('EXA_API_KEY', '')
+
+    # Firecrawl (web scraping) - free 500 pages/month
+    FIRECRAWL_API_KEY = os.environ.get('FIRECRAWL_API_KEY', '')
+
+    # RapidAPI (multi-API hub, optional)
     RAPIDAPI_KEY = os.environ.get('RAPIDAPI_KEY', '')
 
-    # AviationStack - Free 500 flights/month
+    # AviationStack (flight data) - free 500 flights/month
     AVIATIONSTACK_API_KEY = os.environ.get('AVIATIONSTACK_API_KEY', '')

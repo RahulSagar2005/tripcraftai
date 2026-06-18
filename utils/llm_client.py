@@ -8,20 +8,25 @@ from config import Config
 OLLAMA_BASE = "http://localhost:11434"
 OLLAMA_MODEL = "llama3.2"
 
-# NVIDIA API Configuration (Primary Cloud - Free Tier, High Limits)
+# NVIDIA API Configuration (Secondary Cloud - Free Tier, High Limits)
 NVIDIA_API_KEY = Config.NVIDIA_API_KEY
 NVIDIA_API_BASE = "https://integrate.api.nvidia.com/v1"
-# Use available free model on NVIDIA (must use exact model ID)
-NVIDIA_MODEL = "meta-llama/llama-3.1-70b-instruct"
+# Verified working model IDs on integrate.api.nvidia.com
+# Note: NVIDIA uses 'meta/' (single slash) for Meta models, not 'meta-llama/'
+# Order matters: faster 8B-class models first, big 70B models last because
+# they can hit timeouts on long prompts (planner agent, etc.).
+NVIDIA_MODELS = [
+    "meta/llama-3.1-8b-instruct",
+    "mistralai/mistral-large-2-instruct",
+    "google/gemma-3-12b-it",
+    "meta/llama-3.1-70b-instruct",
+    "meta/llama-3.3-70b-instruct",
+]
 
-# Alternative: Try NVIDIA's catalog model format
-NVIDIA_MODEL_ALT = "nvidia/llama-3.1-nemotron-70b-instruct"
-
-# Google Gemini API Configuration (Secondary Cloud - Free Tier)
-GEMINI_API_KEY = Config.GOOGLE_API_KEY
-GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-# Use gemini-1.5-flash - gemini-pro is deprecated
-GEMINI_MODEL = "gemini-1.5-flash"
+# NOTE: Google Gemini is no longer used.
+# The previous key was rejected by Google (403 - "API key was reported as leaked")
+# and the free Gemini path is no longer wired up. Keep GOOGLE_API_KEY in .env
+# for reference but don't call Gemini until a brand-new key is provided.
 
 # Hugging Face Inference API (Free Tier - Fallback)
 HF_API_BASE = "https://api-inference.huggingface.co/models"
@@ -29,7 +34,6 @@ HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
 
 # OpenRouter API Configuration (Free Models Only - Last Fallback)
 OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
-OPENROUTER_MODEL = "meta-llama/llama-3-8b-instruct"
 
 
 def _call_ollama(prompt: str, system_prompt: str = "", max_tokens: int = 4096) -> str:
@@ -136,7 +140,11 @@ def _call_huggingface(prompt: str, system_prompt: str = "", max_tokens: int = 40
 
 
 def _call_nvidia(prompt: str, system_prompt: str = "", max_tokens: int = 4096) -> str:
-    """Call NVIDIA API (free tier - primary cloud option)"""
+    """Call NVIDIA API (free tier - secondary cloud option).
+
+    Tries each model in NVIDIA_MODELS in order; returns the first successful
+    response. Returns None if all fail or the key is missing.
+    """
     if not NVIDIA_API_KEY:
         return None
 
@@ -151,46 +159,45 @@ def _call_nvidia(prompt: str, system_prompt: str = "", max_tokens: int = 4096) -
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    payload = {
-        "model": NVIDIA_MODEL,
-        "messages": messages,
-        "max_tokens": max_tokens,
-        "temperature": 0.7,
-        "stream": False
-    }
+    url = f"{NVIDIA_API_BASE}/chat/completions"
 
-    try:
-        # NVIDIA uses /chat/completions endpoint
-        url = f"{NVIDIA_API_BASE}/chat/completions"
-        resp = requests.post(url, headers=headers, json=payload, timeout=120)
-
-        if resp.status_code == 401:
-            print("[NVIDIA] Authentication failed - check API key")
-            return None
-        elif resp.status_code == 404:
-            # Try alternative model
-            print(f"[NVIDIA] Model '{NVIDIA_MODEL}' not available, trying alternative...")
-            payload["model"] = "mistralai/mistral-large-2-instruct"
+    for model in NVIDIA_MODELS:
+        payload = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": 0.7,
+            "stream": False
+        }
+        try:
             resp = requests.post(url, headers=headers, json=payload, timeout=120)
-            if resp.status_code == 404:
-                print("[NVIDIA] Alternative model also unavailable. Check https://build.nvidia.com/")
+
+            if resp.status_code == 401:
+                print("[NVIDIA] Authentication failed - check API key at https://build.nvidia.com/")
                 return None
+            if resp.status_code == 404:
+                print(f"[NVIDIA] Model '{model}' not available, trying next...")
+                continue
+            if resp.status_code == 429:
+                print(f"[NVIDIA] Rate limited on '{model}', trying next...")
+                continue
+            if resp.status_code >= 400:
+                print(f"[NVIDIA] {model} -> {resp.status_code}: {resp.text[:200]}")
+                continue
 
-        if resp.status_code == 429:
-            print("[NVIDIA] Rate limited")
-            return None
-        elif resp.status_code >= 400:
-            print(f"[NVIDIA] Error {resp.status_code}: {resp.text[:200]}")
-            return None
+            data = resp.json()
+            if "choices" in data and len(data["choices"]) > 0:
+                return data["choices"][0]["message"]["content"]
 
-        data = resp.json()
-        if "choices" in data and len(data["choices"]) > 0:
-            return data["choices"][0]["message"]["content"]
-        return None
+        except requests.exceptions.RequestException as e:
+            print(f"[NVIDIA] Network error on '{model}': {e}")
+            continue
+        except Exception as e:
+            print(f"[NVIDIA] Unexpected error on '{model}': {type(e).__name__}: {e}")
+            continue
 
-    except Exception as e:
-        print(f"[NVIDIA] Error: {type(e).__name__}: {e}")
-        return None
+    print("[NVIDIA] All models failed")
+    return None
 
 
 def _call_openrouter(prompt: str, system_prompt: str = "", max_tokens: int = 4000) -> str:
@@ -212,22 +219,32 @@ def _call_openrouter(prompt: str, system_prompt: str = "", max_tokens: int = 400
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    # Use only FREE models available on OpenRouter (without :free suffix)
-    free_models = [
+    # Use only models verified to have live endpoints on OpenRouter
+    # Note: many "free" :free-suffixed models have been retired; the non-free
+    # slugs below all worked at the time of testing.
+    openrouter_models = [
         "meta-llama/llama-3-8b-instruct",
         "meta-llama/llama-3.1-8b-instruct",
-        "google/gemma-2-9b-it",
-        "mistralai/mistral-7b-instruct-v0.3"
+        "meta-llama/llama-3.3-70b-instruct",
+        "qwen/qwen-2.5-7b-instruct",
     ]
 
+    # Cycle through each model on retry
+    model_index = [0]
+
+    def next_model():
+        idx = model_index[0]
+        model_index[0] = (idx + 1) % len(openrouter_models)
+        return openrouter_models[model_index[0]]
+
     payload = {
-        "model": OPENROUTER_MODEL,
+        "model": openrouter_models[0],
         "messages": messages,
         "max_tokens": max_tokens,
         "temperature": 0.7
     }
 
-    max_retries = 2
+    max_retries = 3
     base_delay = 5
 
     for attempt in range(max_retries):
@@ -237,13 +254,21 @@ def _call_openrouter(prompt: str, system_prompt: str = "", max_tokens: int = 400
             if resp.status_code == 401:
                 print("[OpenRouter] Authentication failed - check API key")
                 return None
+            elif resp.status_code == 402:
+                # Payment required - usually means free credits exhausted for
+                # this model. Try the next one in the list.
+                next_m = next_model()
+                payload["model"] = next_m
+                print(f"[OpenRouter] 402 on previous model, switching to: {next_m}")
+                time.sleep(base_delay)
+                continue
             elif resp.status_code == 404:
-                # Try next free model in list
-                if attempt < len(free_models) - 1:
-                    payload["model"] = free_models[attempt + 1]
-                    print(f"[OpenRouter] Trying next free model: {payload['model']}")
-                    continue
-                return None
+                # Model has no endpoints. Skip to the next one.
+                next_m = next_model()
+                payload["model"] = next_m
+                print(f"[OpenRouter] Model unavailable, switching to: {next_m}")
+                time.sleep(base_delay)
+                continue
             elif resp.status_code == 429:
                 print("[OpenRouter] Rate limited on free tier")
                 return None
@@ -254,7 +279,7 @@ def _call_openrouter(prompt: str, system_prompt: str = "", max_tokens: int = 400
                 continue
 
             if resp.status_code >= 400:
-                print(f"[OpenRouter] Error {resp.status_code}")
+                print(f"[OpenRouter] Error {resp.status_code}: {resp.text[:200]}")
                 return None
 
             data = resp.json()
@@ -273,92 +298,46 @@ def _call_openrouter(prompt: str, system_prompt: str = "", max_tokens: int = 400
 
 
 def _call_gemini(prompt: str, system_prompt: str = "", max_tokens: int = 8192) -> str:
-    """Call Google Gemini API (primary cloud fallback - free tier)"""
-    if not GEMINI_API_KEY:
-        return None
+    """DISABLED: Google Gemini integration is no longer used.
 
-    # Use the correct Gemini model name
-    model_name = "gemini-1.5-flash"
-
-    headers = {"Content-Type": "application/json"}
-    system_instruction = system_prompt if system_prompt else "You are a helpful travel assistant."
-
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "systemInstruction": {"parts": [{"text": system_instruction}]},
-        "generationConfig": {
-            "maxOutputTokens": max_tokens,
-            "temperature": 0.7
-        }
-    }
-
-    try:
-        url = f"{GEMINI_API_BASE}/models/{model_name}:generateContent?key={GEMINI_API_KEY}"
-        resp = requests.post(url, headers=headers, json=payload, timeout=120)
-
-        if resp.status_code == 400:
-            error_data = resp.json()
-            error_msg = error_data.get('error', {}).get('message', 'Unknown error')
-            if "API_KEY_INVALID" in error_msg:
-                print("[Gemini] Invalid API key - get new key at https://aistudio.google.com/app/apikey")
-            else:
-                print(f"[Gemini] Bad request - {error_msg}")
-            return None
-        elif resp.status_code == 404:
-            print(f"[Gemini] 404 - Model '{model_name}' not found or API key invalid.")
-            return None
-        elif resp.status_code == 429:
-            print(f"[Gemini] Rate limited (free tier limit reached)")
-            return None
-        elif resp.status_code >= 500:
-            print(f"[Gemini] Server error {resp.status_code}")
-            return None
-
-        resp.raise_for_status()
-        data = resp.json()
-
-        if "candidates" in data and len(data["candidates"]) > 0:
-            content = data["candidates"][0].get("content", {})
-            if "parts" in content and len(content["parts"]) > 0:
-                return content["parts"][0].get("text", "")
-
-        print("[Gemini] No valid response in candidates")
-        return None
-
-    except Exception as e:
-        print(f"[Gemini] Error: {type(e).__name__}: {e}")
-        return None
+    The previous key was reported as leaked by Google and is permanently
+    banned (HTTP 403 - PERMISSION_DENIED). The function is kept as a stub
+    so any code that still imports it doesn't crash, but it always returns
+    None until a brand-new key from https://aistudio.google.com/app/apikey
+    is wired up and tested.
+    """
+    return None
 
 
 def call_llm(prompt: str, system_prompt: str = "", max_tokens: int = 4096) -> str:
     """
     Call LLM with automatic fallback chain (FREE MODELS ONLY):
-    1. Ollama local LLM (primary - completely free, no API key needed)
-    2. NVIDIA API (free tier, high limits - primary cloud)
-    3. Google Gemini API (free tier)
-    4. Hugging Face Inference API (free tier)
-    5. OpenRouter API (free models only)
+
+    1. Ollama local LLM (primary - completely free, no API key needed, optional)
+    2. OpenRouter free models (primary cloud - confirmed working)
+    3. NVIDIA API (secondary cloud - free tier, verified models)
+    4. Hugging Face Inference API (free tier, optional)
+    5. Gemini - DISABLED (key was reported as leaked by Google)
     """
-    # Try Ollama first (local, completely free)
+    # Try Ollama first (local, completely free, only if user has it installed)
     result = _call_ollama(prompt, system_prompt, max_tokens)
     if result:
         return result
 
-    # Try NVIDIA second (free tier, high limits)
+    # OpenRouter is the reliable primary cloud (free models, confirmed working)
+    if Config.OPENROUTER_API_KEY:
+        result = _call_openrouter(prompt, system_prompt, max_tokens)
+        if result:
+            return result
+
+    # NVIDIA as the secondary cloud (also free, has known-working model list)
     if NVIDIA_API_KEY:
         print("[LLM] Falling back to NVIDIA...")
         result = _call_nvidia(prompt, system_prompt, max_tokens)
         if result:
             return result
 
-    # Try Gemini third (free tier)
-    if GEMINI_API_KEY:
-        print("[LLM] Falling back to Gemini...")
-        result = _call_gemini(prompt, system_prompt, max_tokens)
-        if result:
-            return result
-
-    # Try Hugging Face (free tier)
+    # Hugging Face as a last resort (free tier)
     hf_key = os.environ.get("HUGGINGFACE_API_KEY", "")
     if hf_key:
         print("[LLM] Falling back to Hugging Face...")
@@ -366,14 +345,11 @@ def call_llm(prompt: str, system_prompt: str = "", max_tokens: int = 4096) -> st
         if result:
             return result
 
-    # Try OpenRouter last (free models)
-    if Config.OPENROUTER_API_KEY:
-        print("[LLM] Falling back to OpenRouter (free models)...")
-        result = _call_openrouter(prompt, system_prompt, max_tokens)
-        if result:
-            return result
-
-    return "Error: All LLM providers unavailable. Please install Ollama (ollama.ai) and run 'ollama pull llama3.2', or check your API keys."
+    return (
+        "Error: All LLM providers unavailable. "
+        "Install Ollama (https://ollama.ai) and run 'ollama pull llama3.2', "
+        "or set OPENROUTER_API_KEY / NVIDIA_API_KEY in your environment."
+    )
 
 
 def _fix_json_expressions(text: str) -> str:

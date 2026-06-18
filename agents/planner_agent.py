@@ -180,6 +180,52 @@ Generate ALL {duration} days (Day 0 through Day {duration-1}). Each day should h
     return result
 
 
+def _generate_fallback_guide(trip_data: dict, guide_results: list) -> dict:
+    """Build a basic guide from raw search results when the LLM fails."""
+    destination = trip_data.get("destination", "this destination")
+
+    attractions = []
+    for r in guide_results[:5]:
+        attractions.append({
+            "name": r.get("title", "Attraction"),
+            "type": "Point of interest",
+            "location": "City center",
+            "opening_hours": "Check locally",
+            "entrance_fee": "Varies",
+            "highlights": r.get("snippet", "")[:200],
+            "tips": "Verify hours and ticket prices on the official website before visiting."
+        })
+
+    return {
+        "overview": f"{destination} is a popular destination with a mix of culture, food, and activities. "
+                    f"See the attractions and tips below for guidance during your trip.",
+        "best_time_to_visit": "Check the local climate calendar for your travel dates; shoulder seasons usually offer the best balance of weather and crowds.",
+        "main_attractions": attractions,
+        "local_transport": {
+            "options": ["Metro", "Bus", "Taxi", "Walking"],
+            "tips": ["Buy a daily transport pass if available", "Use official taxi apps"],
+            "airport_to_city": "Pre-book a hotel transfer or use the airport express train/bus."
+        },
+        "culture_etiquette": [
+            "Dress modestly at religious sites",
+            "Greet with a smile; learn a few words of the local language",
+            "Respect local customs around food and dining"
+        ],
+        "safety_tips": [
+            "Keep valuables in the hotel safe",
+            "Use only official taxis or ride-hailing apps"
+        ],
+        "weather_info": "Look up the forecast a few days before you travel and pack accordingly.",
+        "language_tips": ["Learn basic greetings", "Keep a translation app handy"],
+        "currency_tips": ["Use ATMs at banks for better rates", "Carry small notes for tips and small purchases"],
+        "emergency_contacts": {
+            "police": "112 (international emergency number)",
+            "ambulance": "112 (international emergency number)",
+            "tourist_helpline": "Check your government's travel advisory for the local tourist helpline."
+        }
+    }
+
+
 def run_destination_guide_agent(trip_data: dict) -> dict:
     """
     Generates a detailed destination guide.
@@ -235,5 +281,11 @@ Respond with this JSON:
 }}
 """
     result = call_llm_json(prompt, max_tokens=3000)
+
+    # If the LLM didn't return a usable result, build one from the search hits
+    if result.get("error") or not result.get("main_attractions"):
+        print(f"[Guide Agent] LLM output unusable, using fallback built from search results")
+        result = _generate_fallback_guide(trip_data, guide_results)
+
     print(f"[Guide Agent] Done.")
     return result

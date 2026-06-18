@@ -234,5 +234,16 @@ def processing(trip_id):
         return jsonify({'error': str(e)}), 500
 
 
+# ─── Health Check (used by Railway / Render) ─────────────────────────────────
+
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok'}), 200
+
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # Production: gunicorn (set in Procfile) binds 0.0.0.0:$PORT
+    # Local dev: respect PORT env var so the same code works in both
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_DEBUG', '0') == '1'
+    app.run(host='0.0.0.0', port=port, debug=debug)
