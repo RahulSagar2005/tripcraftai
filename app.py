@@ -56,6 +56,9 @@ def init_db_indexes():
 
 @app.before_request
 def before_request():
+    # Skip heavy init for health checks so liveness probes never block.
+    if request.path == '/health':
+        return
     init_db_indexes()
 
 

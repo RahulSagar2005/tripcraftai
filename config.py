@@ -6,8 +6,13 @@ load_dotenv()
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-    MONGODB_URI = os.environ.get('MONGODB_URI', 'mongodb://localhost:27017/tripcraft')
-    DB_NAME = 'tripcraft'
+    # Railway's MongoDB plugin injects MONGO_URL / MONGO_DB; fall back to MONGODB_URI.
+    MONGODB_URI = (
+        os.environ.get('MONGO_URL')
+        or os.environ.get('MONGODB_URI')
+        or 'mongodb://localhost:27017/tripcraft'
+    )
+    DB_NAME = os.environ.get('MONGO_DB') or os.environ.get('DB_NAME') or 'tripcraft'
 
     # ── LLM API keys (FREE TIER ONLY) ──────────────────────────────────────
     # Primary cloud (free models, confirmed working)
